@@ -1,9 +1,10 @@
-# disambiguate: Neural Word Sense Disambiguation Toolkit
+# Disambiguate-Translate: a Toolkit for Neural Word Sense Disambiguation and Machine Translation
 
 
-This repository contains a set of easy-to-use tools for training, evaluating and using neural WSD models.
+## [[Work In Progress]]
 
-This is the implementation used in the article [Sense Vocabulary Compression through the Semantic Knowledge of WordNet for Neural Word Sense Disambiguation](https://arxiv.org/abs/1905.05677), written by Loïc Vial, Benjamin Lecouteux and Didier Schwab.
+
+This repository contains a set of easy-to-use tools for training, evaluating and using neural models for WSD and MT.
 
 
 
