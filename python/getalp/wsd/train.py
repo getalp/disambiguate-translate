@@ -25,6 +25,7 @@ def main():
     parser.add_argument('--input_resize', nargs="+", type=int, default=None, help=" ")
     parser.add_argument('--input_linear_size', nargs="?", type=int, default=None, help=" ")
     parser.add_argument('--input_dropout_rate', nargs="?", type=float, default=None, help=" ")
+    parser.add_argument('--input_combination_method', nargs="?", type=str, default=None, help=" ")
     parser.add_argument('--encoder_type', nargs="?", type=str, default=None, help=" ")
     parser.add_argument('--encoder_lstm_hidden_size', nargs="?", type=int, default=None, help=" ")
     parser.add_argument('--encoder_lstm_layers', nargs="?", type=int, default=None, help=" ")
@@ -35,6 +36,14 @@ def main():
     parser.add_argument('--encoder_transformer_dropout', nargs="?", type=float, default=None, help=" ")
     parser.add_argument('--encoder_transformer_positional_encoding', nargs="?", type=str2bool, default=None, help=" ")
     parser.add_argument('--encoder_transformer_scale_embeddings', nargs="?", type=str2bool, default=None, help=" ")
+    parser.add_argument('--decoder_translation_transformer_hidden_size', nargs="?", type=int, default=None, help=" ")
+    parser.add_argument('--decoder_translation_transformer_layers', nargs="?", type=int, default=None, help=" ")
+    parser.add_argument('--decoder_translation_transformer_heads', nargs="?", type=int, default=None, help=" ")
+    parser.add_argument('--decoder_translation_transformer_dropout', nargs="?", type=float, default=None, help=" ")
+    parser.add_argument('--decoder_translation_scale_embeddings', nargs="?", type=str2bool, default=None, help=" ")
+    parser.add_argument('--decoder_translation_share_embeddings', nargs="?", type=str2bool, default=None, help=" ")
+    parser.add_argument('--decoder_translation_share_encoder_embeddings', nargs="?", type=str2bool, default=None, help=" ")
+    parser.add_argument('--decoder_translation_tokenizer_bert', nargs="?", type=str, default=None, help=" ")
     parser.add_argument('--optimizer', nargs="?", type=str, default="adam", help=" ", choices=["adam"])
     parser.add_argument('--adam_beta1', nargs="?", type=float, default=0.9, help=" ")
     parser.add_argument('--adam_beta2', nargs="?", type=float, default=0.999, help=" ")
@@ -43,6 +52,8 @@ def main():
     parser.add_argument('--lr_scheduler_fixed_lr', nargs="?", type=float, default=0.0001, help=" ")
     parser.add_argument('--lr_scheduler_noam_warmup', nargs="?", type=int, default=6000, help=" ")
     parser.add_argument('--lr_scheduler_noam_model_size', nargs="?", type=int, default=512, help=" ")
+    parser.add_argument('--classifier_loss_factor', nargs="?", type=float, default=1.0, help=" ")
+    parser.add_argument('--decoder_loss_factor', nargs="?", type=float, default=1.0, help=" ")
     parser.add_argument('--reset', action="store_true", help=" ")
     parser.add_argument('--save_best_loss', action="store_true", help=" ")
     parser.add_argument('--save_every_epoch', action="store_true", help=" ")
@@ -74,6 +85,7 @@ def main():
     trainer.input_resize = args.input_resize
     trainer.input_linear_size = args.input_linear_size
     trainer.input_dropout_rate = args.input_dropout_rate
+    trainer.input_combination_method = args.input_combination_method
     trainer.encoder_type = args.encoder_type
     trainer.encoder_lstm_layers = args.encoder_lstm_layers
     trainer.encoder_lstm_hidden_size = args.encoder_lstm_hidden_size
@@ -84,6 +96,14 @@ def main():
     trainer.encoder_transformer_dropout = args.encoder_transformer_dropout
     trainer.encoder_transformer_positional_encoding = args.encoder_transformer_positional_encoding
     trainer.encoder_transformer_scale_embeddings = args.encoder_transformer_scale_embeddings
+    trainer.decoder_translation_transformer_hidden_size = args.decoder_translation_transformer_hidden_size
+    trainer.decoder_translation_transformer_layers = args.decoder_translation_transformer_layers
+    trainer.decoder_translation_transformer_heads = args.decoder_translation_transformer_heads
+    trainer.decoder_translation_transformer_dropout = args.decoder_translation_transformer_dropout
+    trainer.decoder_translation_scale_embeddings = args.decoder_translation_scale_embeddings
+    trainer.decoder_translation_share_embeddings = args.decoder_translation_share_embeddings
+    trainer.decoder_translation_share_encoder_embeddings = args.decoder_translation_share_encoder_embeddings
+    trainer.decoder_translation_tokenizer_bert = args.decoder_translation_tokenizer_bert
     trainer.optimizer = args.optimizer
     trainer.adam_beta1 = args.adam_beta1
     trainer.adam_beta2 = args.adam_beta2
@@ -92,6 +112,8 @@ def main():
     trainer.lr_scheduler_fixed_lr = args.lr_scheduler_fixed_lr
     trainer.lr_scheduler_noam_warmup = args.lr_scheduler_noam_warmup
     trainer.lr_scheduler_noam_model_size = args.lr_scheduler_noam_model_size
+    trainer.classifier_loss_factor = args.classifier_loss_factor
+    trainer.decoder_loss_factor = args.decoder_loss_factor
     trainer.reset = args.reset
 
     trainer.train()

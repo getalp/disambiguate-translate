@@ -18,29 +18,79 @@ public class MultipleDisambiguationResult
     {
         results.add(result);
     }
-    
+
     public double scoreMean()
     {
-        return DoubleMath.mean(allScores());
+        try
+        {
+            return DoubleMath.mean(allScores());
+        }
+        catch (Exception e)
+        {
+            return Double.NaN;
+        }
     }
-    
+
+    public double scoreMeanPerPOS(String pos)
+    {
+        try
+        {
+            return DoubleMath.mean(allScoresPerPOS(pos));
+        }
+        catch (Exception e)
+        {
+            return Double.NaN;
+        }
+    }
+
     public double scoreStandardDeviation()
     {
-        return new StandardDeviation().evaluate(allScores(), scoreMean());
+        try
+        {
+            return new StandardDeviation().evaluate(allScores(), scoreMean());
+        }
+        catch (Exception e)
+        {
+            return Double.NaN;
+        }
     }
-    
+
+    public double scoreStandardDeviationPerPOS(String pos)
+    {
+        try
+        {
+            return new StandardDeviation().evaluate(allScoresPerPOS(pos), scoreMeanPerPOS(pos));
+        }
+        catch (Exception e)
+        {
+            return Double.NaN;
+        }
+    }
+
     public double timeMean()
     {
-        return DoubleMath.mean(allTimes());
+        try
+        {
+            return DoubleMath.mean(allTimes());
+        }
+        catch (Exception e)
+        {
+            return Double.NaN;
+        }
     }
-    
+
     public double[] allScores()
     {
         return results.stream().mapToDouble(DisambiguationResult::scoreF1).toArray();
     }
-    
+
+    public double[] allScoresPerPOS(String pos)
+    {
+        return results.stream().mapToDouble(res -> res.scoreF1PerPOS(pos)).toArray();
+    }
+
     public double[] allTimes()
     {
-        return results.stream().mapToDouble((DisambiguationResult r) -> {return r.time;}).toArray();
+        return results.stream().mapToDouble(res -> res.time).toArray();
     }
 }

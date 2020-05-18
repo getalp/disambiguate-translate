@@ -18,6 +18,7 @@ class ModelConfig(object):
         self.input_resize: List[int] = []
         self.input_linear_size: int = int()
         self.input_dropout_rate: float = float()
+        self.input_combination_method: str = str()
         self.encoder_type: str = str()
         self.encoder_lstm_hidden_size: int = int()
         self.encoder_lstm_layers: int = int()
@@ -56,17 +57,18 @@ class ModelConfig(object):
         self.set_input_resize(data.get("input_resize", None))
         self.input_linear_size = data.get("input_linear_size", None)
         self.input_dropout_rate = data.get("input_dropout_rate", None)
-        self.encoder_type = data.get("encoder_type", "lstm")
+        self.input_combination_method = data.get("input_combination_method", "concat")
+        self.encoder_type = data.get("encoder_type", "transformer")
         self.encoder_lstm_hidden_size = data.get("encoder_lstm_hidden_size", 1000)
         self.encoder_lstm_layers = data.get("encoder_lstm_layers", 1)
         self.encoder_lstm_dropout = data.get("encoder_lstm_dropout", 0.5)
-        self.encoder_transformer_hidden_size = data.get("encoder_transformer_hidden_size", 512)
+        self.encoder_transformer_hidden_size = data.get("encoder_transformer_hidden_size", 2048)
         self.encoder_transformer_layers = data.get("encoder_transformer_layers", 6)
         self.encoder_transformer_heads = data.get("encoder_transformer_heads", 8)
         self.encoder_transformer_dropout = data.get("encoder_transformer_dropout", 0.1)
         self.encoder_transformer_positional_encoding = data.get("encoder_transformer_positional_encoding", True)
         self.encoder_transformer_scale_embeddings = data.get("encoder_transformer_scale_embeddings", True)
-        self.decoder_translation_transformer_hidden_size = data.get("decoder_translation_transformer_hidden_size", 512)
+        self.decoder_translation_transformer_hidden_size = data.get("decoder_translation_transformer_hidden_size", 2048)
         self.decoder_translation_transformer_layers = data.get("decoder_translation_transformer_layers", 6)
         self.decoder_translation_transformer_heads = data.get("decoder_translation_transformer_heads", 8)
         self.decoder_translation_transformer_dropout = data.get("decoder_translation_transformer_dropout", 0.1)
@@ -77,7 +79,7 @@ class ModelConfig(object):
 
     def load_input_embeddings_sizes(self, data):
         self.input_embeddings_sizes = get_value_as_int_list(data.get("input_embeddings_size", None))
-        pad_list(self.input_embeddings_sizes, self.data_config.input_features, 300)
+        pad_list(self.input_embeddings_sizes, self.data_config.input_features, 256)
         self.reset_input_embeddings_sizes()
 
     def set_input_embeddings_tokenize_model(self, tokenize_model):
@@ -129,6 +131,7 @@ class ModelConfig(object):
             "input_resize": self.input_resize,
             "input_linear_size": self.input_linear_size,
             "input_dropout_rate": self.input_dropout_rate,
+            "input_combination_method": self.input_combination_method,
             "encoder_type": self.encoder_type,
             "encoder_lstm_hidden_size": self.encoder_lstm_hidden_size,
             "encoder_lstm_layers": self.encoder_lstm_layers,

@@ -21,6 +21,8 @@ class Model(object):
         self.optimizer: TorchModelOptimizer = TorchModelOptimizer()
         self.classification_criterion = CrossEntropyLoss(ignore_index=0)
         self.translation_criterion = LabelSmoothedCrossEntropyCriterion(label_smoothing=0.1, ignore_index=0)
+        self.classifier_loss_factor: float = 1.0
+        self.decoder_loss_factor: float = 1.0
 
     def create_model(self):
         self.backend = TorchModel(self.config, self.config.data_config)
@@ -49,7 +51,7 @@ class Model(object):
         if self.backend.decoder_translation is not None:
             self.backend.decoder_translation.beam_size = beam_size
 
-    def load_model_weights(self, file_path):
+    def load_model_weights(self, file_path, load_optimizer_state=True):
         save = torch.load(file_path, map_location=str(default_device))
         self.config.load_from_serializable_data(save["config"])
         self.create_model()
@@ -58,7 +60,8 @@ class Model(object):
             self.backend.decoder_classification.load_state_dict(save["backend_decoder_classification"], strict=True)
         if self.backend.decoder_translation is not None:
             self.backend.decoder_translation.load_state_dict(save["backend_decoder_translation"], strict=True)
-        self.optimizer.adam.load_state_dict(save["optimizer"])
+        if load_optimizer_state:
+            self.optimizer.adam.load_state_dict(save["optimizer"])
         for i in range(len(self.backend.embeddings)):
             if not self.backend.embeddings[i].is_fixed():
                 self.backend.embeddings[i].load_state_dict(save["backend_embeddings" + str(i)], strict=True)
@@ -83,7 +86,7 @@ class Model(object):
         self.backend.train()
         for i in range(len(self.backend.embeddings)):
             if self.backend.embeddings[i].is_fixed():
-                self.backend.embeddings[i].eval()
+                pass  # self.backend.embeddings[i].eval()
         losses, total_loss = self.forward_and_compute_loss(batch_x, batch_y, batch_tt)
         total_loss.backward()
         return losses
@@ -141,21 +144,24 @@ class Model(object):
             feature_outputs = outputs_classification[i].view(-1, outputs_classification[i].shape[2])
             feature_batch_y = batch_y[i].view(-1)
             loss = self.classification_criterion(feature_outputs, feature_batch_y)
+            loss *= self.classifier_loss_factor
             losses.append(loss.item())
             if total_loss is None:
                 total_loss = loss
             else:
                 total_loss = total_loss + loss
         if len(batch_tt) > 0:
-            outputs_translation[0][0] = outputs_translation[0][0].contiguous()
-            translation_output = outputs_translation[0][0].view(-1, outputs_translation[0][0].shape[2])
-            translation_batch_tt = batch_tt[0][0].view(-1)
-            loss = self.translation_criterion(translation_output, translation_batch_tt)
-            losses.append(loss.item())
-            if total_loss is None:
-                total_loss = loss
-            else:
-                total_loss = total_loss + loss
+            for i in range(len(batch_tt[0])):
+                outputs_translation[0][i] = outputs_translation[0][i].contiguous()
+                translation_output = outputs_translation[0][i].view(-1, outputs_translation[0][i].shape[2])
+                translation_batch_tt = batch_tt[0][i].view(-1)
+                loss = self.translation_criterion(translation_output, translation_batch_tt)
+                loss *= self.decoder_loss_factor
+                losses.append(loss.item())
+                if total_loss is None:
+                    total_loss = loss
+                else:
+                    total_loss = total_loss + loss
         return losses, total_loss
 
     def convert_batch_x_on_default_device(self, batch_x):
@@ -190,11 +196,11 @@ class TorchModelOptimizer(object):
 
     def __init__(self):
         super().__init__()
-        self.adam_beta1: float = None
-        self.adam_beta2: float = None
-        self.adam_eps: float = None
-        self.adam: Adam = None
-        self.scheduler: Union[SchedulerFixed, SchedulerNoam] = None
+        self.adam_beta1: Optional[float] = None
+        self.adam_beta2: Optional[float] = None
+        self.adam_eps: Optional[float] = None
+        self.adam: Optional[Adam] = None
+        self.scheduler: Optional[Union[SchedulerFixed, SchedulerNoam]] = None
 
     def set_adam_parameters(self, adam_beta1: float, adam_beta2: float, adam_eps: float):
         self.adam_beta1 = adam_beta1
@@ -222,6 +228,9 @@ class TorchModelOptimizer(object):
 
 
 class TorchModel(Module):
+
+    embeddings: List[Module]
+    encoder: Optional[Module]
 
     def __init__(self, config: ModelConfig, data_config: DataConfig):
         super().__init__()
@@ -279,4 +288,4 @@ class TorchModel(Module):
         translation_outputs = []
         if self.decoder_translation is not None:
             translation_outputs = self.decoder_translation(inputs, pad_mask, translation_true_output[0][0])
-        return classification_outputs, [[translation_outputs]]
+        return classification_outputs, [translation_outputs]

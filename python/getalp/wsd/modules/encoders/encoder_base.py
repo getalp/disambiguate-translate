@@ -8,6 +8,8 @@ class EncoderBase(Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
 
+        self.input_combination_method = config.input_combination_method
+
         self.input_resize = None
         for i in range(config.data_config.input_features):
             if config.input_resize[i] is not None and self.input_resize is None:
@@ -18,12 +20,21 @@ class EncoderBase(Module):
             for i in range(config.data_config.input_features):
                 if config.input_resize[i] is not None:
                     self.input_resize.append(Linear(in_features=config.input_embeddings_sizes[i], out_features=config.input_resize[i]))
-                    self.resulting_embeddings_size += config.input_resize[i]
+                    if self.input_combination_method == "concat":
+                        self.resulting_embeddings_size += config.input_resize[i]
+                    else:
+                        self.resulting_embeddings_size = max(self.resulting_embeddings_size, config.input_resize[i])
                 else:
                     self.input_resize.append(None)
-                    self.resulting_embeddings_size += config.input_embeddings_sizes[i]
+                    if self.input_combination_method == "concat":
+                        self.resulting_embeddings_size += config.input_embeddings_sizes[i]
+                    else:
+                        self.resulting_embeddings_size = max(self.resulting_embeddings_size, config.input_embeddings_sizes[i])
         else:
-            self.resulting_embeddings_size = sum(config.input_embeddings_sizes)
+            if self.input_combination_method == "concat":
+                self.resulting_embeddings_size = sum(config.input_embeddings_sizes)
+            else:
+                self.resulting_embeddings_size = max(config.input_embeddings_sizes)
 
         if config.input_linear_size is not None:
             self.input_linear = Linear(in_features=self.resulting_embeddings_size, out_features=config.input_linear_size)
@@ -48,7 +59,10 @@ class EncoderBase(Module):
             for i in range(len(embeddings)):
                 if self.input_resize[i] is not None:
                     embeddings[i] = self.input_resize[i](embeddings[i])
-        embeddings = torch_cat(embeddings, dim=2)
+        if self.input_combination_method == "concat":
+            embeddings = torch_cat(embeddings, dim=2)
+        else:
+            embeddings = sum(embeddings)
         if self.input_linear is not None:
             embeddings = self.input_linear(embeddings)
         if self.input_dropout is not None:

@@ -34,6 +34,8 @@ public class NeuralDisambiguator extends DisambiguatorContextSentenceBatch imple
 
     private int outputTranslations;
 
+    // private int outputTranslationFeatures;
+
     private List<String> outputAnnotationNames;
 
     private Map<String, Integer> reversedOutputAnnotationNames;
@@ -42,7 +44,7 @@ public class NeuralDisambiguator extends DisambiguatorContextSentenceBatch imple
 
     private List<Map<Integer, String>> reversedOutputVocabulary;
 
-    private List<Map<Integer, String>> reversedOutputTranslationVocabulary;
+    // private List<Map<Integer, String>> reversedOutputTranslationVocabulary;
 
     private Process pythonProcess;
 
@@ -56,11 +58,11 @@ public class NeuralDisambiguator extends DisambiguatorContextSentenceBatch imple
 
     private int beamSize;
 
-    private boolean disambiguate = true;
+    private boolean disambiguate;
 
-    private boolean translate = false;
+    private boolean translate;
 
-    private boolean extraLemma = false;
+    private boolean extraLemma;
 
     // --- begin public options
 
@@ -97,6 +99,11 @@ public class NeuralDisambiguator extends DisambiguatorContextSentenceBatch imple
         this(pythonPath, neuralPath, Collections.singletonList(weightsPath), clearText, batchSize, translate, beamSize, extraLemma);
     }
 
+    public NeuralDisambiguator(String pythonPath, String neuralPath, String weightsPath, boolean clearText, int batchSize, boolean disambiguate, boolean translate, int beamSize, boolean extraLemma)
+    {
+        this(pythonPath, neuralPath, Collections.singletonList(weightsPath), clearText, batchSize, disambiguate, translate, beamSize, extraLemma);
+    }
+
     public NeuralDisambiguator(String pythonPath, String neuralPath, List<String> weightsPath)
     {
         this(pythonPath, neuralPath, weightsPath, false, 1);
@@ -119,19 +126,26 @@ public class NeuralDisambiguator extends DisambiguatorContextSentenceBatch imple
 
     public NeuralDisambiguator(String pythonPath, String neuralPath, List<String> weightsPaths, boolean clearText, int batchSize, boolean translate, int beamSize, boolean extraLemma)
     {
+        this(pythonPath, neuralPath, weightsPaths, clearText, batchSize, true, translate, beamSize, extraLemma);
+    }
+
+    public NeuralDisambiguator(String pythonPath, String neuralPath, List<String> weightsPaths, boolean clearText, int batchSize, boolean disambiguate, boolean translate, int beamSize, boolean extraLemma)
+    {
         super(batchSize);
         try
         {
             this.clearText = clearText;
             this.batchSize = batchSize;
             this.beamSize = beamSize;
+            this.disambiguate = disambiguate;
             this.translate = translate;
+            assert(this.disambiguate || this.translate);
             this.extraLemma = extraLemma;
-        	initPythonProcess(pythonPath, neuralPath, weightsPaths);
-        	readConfigFile(neuralPath);
+            initPythonProcess(pythonPath, neuralPath, weightsPaths);
+            readConfigFile(neuralPath);
             initInputVocabulary(neuralPath);
             initOutputVocabulary(neuralPath);
-            initTranslationOutputVocabulary(neuralPath);
+            // initTranslationOutputVocabulary(neuralPath);
         }
         catch (Exception e)
         {
@@ -175,7 +189,8 @@ public class NeuralDisambiguator extends DisambiguatorContextSentenceBatch imple
         inputClearText = (List<Boolean>) config.get("input_clear_text");
     	outputFeatures = (int) config.get("output_features");
     	outputAnnotationNames = (List<String>) config.get("output_annotation_name");
-        outputTranslations = (int) config.get("output_translation_features");
+        outputTranslations = (int) config.get("output_translations");
+        // outputTranslationFeatures = (int) config.get("output_translation_features");
         senseFeatureIndex = 0;
     }
 
@@ -207,20 +222,25 @@ public class NeuralDisambiguator extends DisambiguatorContextSentenceBatch imple
         }
     }
 
+    /*
     private void initTranslationOutputVocabulary(String neuralPath) throws Exception
     {
         reversedOutputTranslationVocabulary = new ArrayList<>();
-        for (int i = 0 ; i < outputTranslations ; i++)
+        if (outputTranslations > 0)
         {
-            Map<String, Integer> vocabulary = initVocabulary(neuralPath + "/output_translation" + i + "_vocabulary0");
-            Map<Integer, String> reversedVocabulary = new HashMap<>();
-            for (String key : vocabulary.keySet())
+            for (int i = 0; i < outputTranslationFeatures; i++)
             {
-                reversedVocabulary.put(vocabulary.get(key), key);
+                Map<String, Integer> vocabulary = initVocabulary(neuralPath + "/output_translation0_vocabulary" + i);
+                Map<Integer, String> reversedVocabulary = new HashMap<>();
+                for (String key : vocabulary.keySet())
+                {
+                    reversedVocabulary.put(vocabulary.get(key), key);
+                }
+                reversedOutputTranslationVocabulary.add(reversedVocabulary);
             }
-            reversedOutputTranslationVocabulary.add(reversedVocabulary);
         }
     }
+    */
 
     private Map<String, Integer> initVocabulary(String filePath) throws Exception
     {
@@ -254,6 +274,7 @@ public class NeuralDisambiguator extends DisambiguatorContextSentenceBatch imple
 
     private void writePredictInputSampleX(List<Word> words) throws Exception
     {
+        List<String> allFeatures = new ArrayList<>();
         for (Word w : words)
         {
             if (lowercaseWords)
@@ -279,14 +300,15 @@ public class NeuralDisambiguator extends DisambiguatorContextSentenceBatch imple
                 }
                 featureValues.add(featureValue);
             }
-            pythonProcessWriter.write(StringUtils.join(featureValues, "/") + " ");
+            allFeatures.add(String.join("/", featureValues));
         }
+        pythonProcessWriter.write(String.join(" ", allFeatures));
         pythonProcessWriter.newLine();
     }
 
     private void writePredictInputSampleZ(List<Word> words) throws Exception
     {
-        if (outputFeatures <= 0) return;
+        if (!disambiguate || outputFeatures <= 0) return;
         if (extraLemma) return;
         for (Word word : words)
         {
@@ -347,7 +369,7 @@ public class NeuralDisambiguator extends DisambiguatorContextSentenceBatch imple
         for (int i = 0 ; i < sentences.size() ; i++)
         {
             Sentence sentence = sentences.get(i);
-            if (outputFeatures > 0)
+            if (disambiguate && outputFeatures > 0)
             {
                 List<Word> words = sentence.getWords();
                 String line = pythonProcessReader.readLine();
@@ -367,21 +389,23 @@ public class NeuralDisambiguator extends DisambiguatorContextSentenceBatch imple
                     propagatePredictOutput(words, output, senseTag, confidenceTag);
                 }
             }
-            // TODO: for (int i = 0 ; i < outputTranslations ; i++)
-            if (outputTranslations > 0)
+            if (translate)
             {
-                String line = pythonProcessReader.readLine();
-                if (line.startsWith("Better speed can be achieved with apex installed"))
+                for (int j = 0 ; j < outputTranslations ; j++)
                 {
-                    i--;
-                    continue;
+                    String line = pythonProcessReader.readLine();
+                    if (line.startsWith("Better speed can be achieved with apex installed"))
+                    {
+                        i--;
+                        continue;
+                    }
+                    if (line.isEmpty())
+                    {
+                        line = "0";
+                    }
+                    String[] output = line.split(RegExp.anyWhiteSpaceGrouped.pattern());
+                    translations.add(processTranslationOutput(output));
                 }
-                if (line.isEmpty())
-                {
-                    line = "0";
-                }
-                String[] output = line.split(RegExp.anyWhiteSpaceGrouped.pattern());
-                translations.add(processTranslationOutput(output));
             }
         }
         return translations;
@@ -393,7 +417,7 @@ public class NeuralDisambiguator extends DisambiguatorContextSentenceBatch imple
         int[] output = new int[lineSplit.length];
         for (int i = 0 ; i < lineSplit.length ; i++)
         {
-            output[i] = Integer.valueOf(lineSplit[i]);
+            output[i] = Integer.parseInt(lineSplit[i]);
         }
         return output;
     }
@@ -408,7 +432,7 @@ public class NeuralDisambiguator extends DisambiguatorContextSentenceBatch imple
             output[i] = new int[wordSplit.length];
             for (int j = 0 ; j < wordSplit.length ; j++)
             {
-                output[i][j] = Integer.valueOf(wordSplit[j]);
+                output[i][j] = Integer.parseInt(wordSplit[j]);
             }
         }
         return output;

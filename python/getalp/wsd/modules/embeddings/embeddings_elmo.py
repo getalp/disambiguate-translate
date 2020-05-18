@@ -1,6 +1,9 @@
+import torch
 from torch.nn import Module
+from torch.nn.utils.rnn import pad_sequence
 from typing import List, Dict, Tuple
 from getalp.wsd.torch_utils import default_device
+from getalp.wsd.torch_fix import torch_long
 
 
 class EmbeddingsElmo(Module):
@@ -45,9 +48,11 @@ class EmbeddingsElmo(Module):
     def forward(self, inputs):
         if self.clear_text:
             from allennlp.modules.elmo import batch_to_ids
+            pad_mask = [torch.ones(len(x), dtype=torch_long, device=default_device) for x in inputs]
+            pad_mask = pad_sequence(pad_mask, batch_first=True, padding_value=0)
             inputs = batch_to_ids(inputs)
             inputs = inputs.to(default_device)
-            return self.elmo_embeddings(inputs)["elmo_representations"][0], None, None
+            return self.elmo_embeddings(inputs)["elmo_representations"][0], pad_mask, None
         else:
             return self.elmo_embeddings(inputs, inputs)["elmo_representations"][0], inputs, None
 

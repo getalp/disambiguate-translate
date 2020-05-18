@@ -12,7 +12,7 @@ class Predicter(object):
         self.clear_text: bool = bool()
         self.batch_size: int = int()
         self.disambiguate: bool = bool()
-        self.translate: bool = False
+        self.translate: bool = bool()
         self.beam_size: int = int()
         self.output_all_features: bool = bool()
         self.data_config: DataConfig = None
@@ -32,7 +32,10 @@ class Predicter(object):
 
         assert(self.disambiguate or self.translate)
 
-        ensemble = self.create_ensemble(config, self.ensemble_weights_path)
+        if len(self.ensemble_weights_path) == 0:
+            ensemble = self.create_dummy_model(config)
+        else:
+            ensemble = self.create_ensemble(config, self.ensemble_weights_path)
 
         i = 0
         batch_x = None
@@ -69,9 +72,15 @@ class Predicter(object):
     def create_ensemble(self, config: ModelConfig, ensemble_weights_paths: List[str]):
         ensemble = [Model(config) for _ in range(len(ensemble_weights_paths))]
         for i in range(len(ensemble)):
-            ensemble[i].load_model_weights(ensemble_weights_paths[i])
+            ensemble[i].load_model_weights(ensemble_weights_paths[i], load_optimizer_state=False)
             ensemble[i].set_beam_size(self.beam_size)
         return ensemble
+
+    @staticmethod
+    def create_dummy_model(config: ModelConfig):
+        model = Model(config)
+        model.create_model()
+        return [model]
 
     @staticmethod
     def preprocess_sample_x(ensemble: List[Model], sample_x):

@@ -12,9 +12,13 @@ from onmt.utils.misc import tile
 from getalp.wsd.torch_utils import default_device
 from getalp.wsd.common import bos_token_index, eos_token_index, pad_token_index
 import math
+from typing import Optional
 
 
 class DecoderTranslateTransformer(Module):
+
+    transformer_layers: ModuleList
+    linear_features: Optional[ModuleList]
 
     def __init__(self, config: ModelConfig, data_config: DataConfig, encoder_embeddings):
         super().__init__()
@@ -33,6 +37,7 @@ class DecoderTranslateTransformer(Module):
         self.dropout = Dropout(config.decoder_translation_transformer_dropout)
 
         if config.decoder_translation_share_encoder_embeddings:
+            assert(self.embeddings.weight.shape == encoder_embeddings.get_lut_embeddings().weight.shape)
             self.embeddings.weight = encoder_embeddings.get_lut_embeddings().weight
 
         self.transformer_layers = ModuleList([TransformerDecoderLayer(d_model=config.encoder_output_size,
@@ -49,6 +54,12 @@ class DecoderTranslateTransformer(Module):
         if config.decoder_translation_share_embeddings:
             self.linear.weight = self.embeddings.weight
 
+        self.linear_features = None
+        if data_config.output_translation_features > 1:
+            self.linear_features = ModuleList([Linear(in_features=config.encoder_output_size,
+                                                      out_features=data_config.output_translation_vocabulary_sizes[0][i])
+                                               for i in range(1, data_config.output_translation_features)])
+
         self.max_seq_out_len = 150
         self.beam_size = 1
         self.state = {}
@@ -58,7 +69,7 @@ class DecoderTranslateTransformer(Module):
     #   - pad_mask:               LongTensor  - batch x seq_in
     #   - true_output (training): LongTensor  - batch x seq_out
     # output:
-    #   - output:                 FloatTensor - batch x seq_out x vocab_out
+    #   - output                  List[FloatTensor] - features x batch x seq_out x vocab_out
     def forward(self, encoder_output: torch.Tensor, pad_mask: torch.Tensor, true_output: torch.Tensor):
         pad_mask = pad_mask.transpose(0, 1)  # seq_in x batch
         encoder_output = encoder_output.transpose(0, 1)  # seq_in x batch x hidden
@@ -91,7 +102,7 @@ class DecoderTranslateTransformer(Module):
         output = self.dropout(output)
 
         src_pad_mask = src.data.eq(pad_token_index).unsqueeze(1)  # [B, 1, T_src]
-        tgt_pad_mask = tgt.data.eq(pad_token_index).unsqueeze(1)  # [B, 1, T_tgt]
+        tgt_pad_mask = tgt.data.eq(pad_token_index).unsqueeze(1).to(dtype=torch.uint8)  # [B, 1, T_tgt]
 
         attn = None
         for i, layer in enumerate(self.transformer_layers):
@@ -120,9 +131,16 @@ class DecoderTranslateTransformer(Module):
         true_output = true_output[:-1]  # seq-1 x batch
         true_output = torch_cat((bos_true_output, true_output), dim=0)  # seq x batch
         output, _ = self.forward_step(src=pad_mask, tgt=true_output, memory_bank=encoder_output, step=None)  # seq_out x batch x hidden
-        output = self.linear(output)  # seq_out x batch x vocab_out
-        output = output.transpose(0, 1)  # batch x seq_out x vocab_out
-        return output
+        outputs = []
+        feature_output = self.linear(output)  # seq_out x batch x vocab_out
+        feature_output = feature_output.transpose(0, 1)  # batch x seq_out x vocab_out
+        outputs.append(feature_output)
+        if self.linear_features is not None:
+            for linear in self.linear_features:
+                feature_output = linear(output)
+                feature_output = feature_output.transpose(0, 1)
+                outputs.append(feature_output)
+        return outputs
 
     @torch.no_grad()
     def forward_dev(self, encoder_output, pad_mask):
@@ -135,17 +153,33 @@ class DecoderTranslateTransformer(Module):
     def forward_dev_greedy(self, encoder_output, pad_mask):
         batch_size = encoder_output.size(1)
         last_output = self.make_bos_token(batch_size)  # 1 x batch
-        outputs = []  # List[1 x batch]
+        outputs = [[]]  # List[features x 1 x batch]
+        # if self.linear_features is not None:
+        #     for _ in self.linear_features:
+        #         outputs.append([])
         eos_count = torch_zeros(batch_size, dtype=torch_uint8, device=default_device)  # batch
         for i in range(self.max_seq_out_len):
             last_output, _ = self.forward_step(src=pad_mask, tgt=last_output, memory_bank=encoder_output, step=i)  # 1 x batch x hidden
+
             last_output = self.linear(last_output)  # 1 x batch x vocab_out
             last_output = torch_argmax(last_output, dim=2)  # 1 x batch
-            outputs.append(last_output)
-            eos_count = eos_count.add(last_output.eq(eos_token_index))
+            outputs[0].append(last_output)
+
+            eos_count = eos_count.add(last_output.eq(eos_token_index).to(dtype=torch.uint8))
+
+            # if self.linear_features is not None:
+            #     for j, linear in enumerate(self.linear_features):
+            #         feature_output = linear(last_output)  # 1 x batch x vocab_out
+            #         feature_output = torch_argmax(feature_output, dim=2)  # 1 x batch
+            #         outputs[j+1].append(feature_output)
+
             if eos_count.gt(0).sum() >= batch_size:
                 break
-        return torch_cat(outputs, dim=0).transpose(0, 1)  # batch x seq
+
+        for i in range(len(outputs)):
+            outputs[i] = torch.cat(outputs[i], dim=0).transpose(0, 1)  # batch x seq
+
+        return outputs
 
     @torch.no_grad()
     def forward_dev_beam_search(self, encoder_output: torch.Tensor, pad_mask):
@@ -159,8 +193,12 @@ class DecoderTranslateTransformer(Module):
         pad_mask = tile(pad_mask, self.beam_size, dim=1)
         memory_lengths = tile(memory_lengths, self.beam_size, dim=0)
 
+        # TODO:
+        #  - fix attn (?)
+        #  - use coverage_penalty="summary" ou "wu" and beta=0.2 (ou pas)
+        #  - use length_penalty="wu" and alpha=0.2 (ou pas)
         beam = BeamSearch(beam_size=self.beam_size, n_best=1, batch_size=batch_size, mb_device=default_device,
-                          global_scorer=GNMTGlobalScorer(alpha=0.2, beta=0.2, coverage_penalty="none", length_penalty="avg"),
+                          global_scorer=GNMTGlobalScorer(alpha=0, beta=0, coverage_penalty="none", length_penalty="avg"),
                           pad=pad_token_index, eos=eos_token_index, bos=bos_token_index, min_length=1, max_length=100,
                           return_attention=False, stepwise_penalty=False, block_ngram_repeat=0, exclusion_tokens=set(),
                           memory_lengths=memory_lengths, ratio=-1)
@@ -176,7 +214,7 @@ class DecoderTranslateTransformer(Module):
             # attn = attn.squeeze(0)  # batch*beam x vocab_out
             # out = out.view(batch_size, self.beam_size, -1)  # batch x beam x vocab_out
             # attn = attn.view(batch_size, self.beam_size, -1)
-            # TODO: fix attn and use coverage_penalty="summary"
+            # TODO: fix attn (?)
 
             beam.advance(out, attn)
             any_beam_is_finished = beam.is_finished.any()
@@ -198,7 +236,7 @@ class DecoderTranslateTransformer(Module):
         outputs = beam.predictions
         outputs = [x[0] for x in outputs]
         outputs = pad_sequence(outputs, batch_first=True)
-        return outputs
+        return [outputs]
 
     # output : 1 x batch
     @staticmethod

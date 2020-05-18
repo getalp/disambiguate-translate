@@ -1,7 +1,4 @@
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import getalp.wsd.common.wordnet.WordnetHelper;
 import getalp.wsd.evaluation.WSDEvaluator;
@@ -46,7 +43,7 @@ public class NeuralWSDTest
         ArgumentParser parser = new ArgumentParser();
         parser.addArgument("python_path");
         parser.addArgument("data_path");
-        parser.addArgumentList("weights");
+        parser.addArgumentList("weights", Collections.emptyList());
         parser.addArgumentList("corpus", Arrays.asList(
                 "ufsac-public-2.1/raganato_senseval2.xml",
                 "ufsac-public-2.1/raganato_senseval3.xml",
@@ -63,6 +60,8 @@ public class NeuralWSDTest
         parser.addArgument("filter_lemma", "true");
         parser.addArgument("clear_text", "false");
         parser.addArgument("batch_size", "1");
+        parser.addArgument("ensemble", "true");
+        parser.addArgument("mean", "true");
         if (!parser.parse(args, true)) return;
 
         pythonPath = parser.getArgValue("python_path");
@@ -77,6 +76,8 @@ public class NeuralWSDTest
         filterLemma = parser.getArgValueBoolean("filter_lemma");
         clearText = parser.getArgValueBoolean("clear_text");
         batchSize = parser.getArgValueInteger("batch_size");
+        boolean ensemble = parser.getArgValueBoolean("ensemble");
+        boolean mean = parser.getArgValueBoolean("mean");
 
         senseCompressionClusters = null;
         if (senseCompressionHypernyms || senseCompressionAntonyms)
@@ -93,17 +94,21 @@ public class NeuralWSDTest
 
         evaluator = new WSDEvaluator();
 
-        System.out.println();
-        System.out.println("------ Evaluate the score of an ensemble of models");
-        System.out.println();
+        if (ensemble)
+        {
+            System.out.println();
+            System.out.println("------ Evaluate the score of an ensemble of models");
+            System.out.println();
+            evaluate_ensemble();
+        }
 
-        evaluate_ensemble();
-
-        System.out.println();
-        System.out.println("------ Evaluate the scores of individual models");
-        System.out.println();
-
-        evaluate_mean_scores();
+        if (mean)
+        {
+            System.out.println();
+            System.out.println("------ Evaluate the scores of individual models");
+            System.out.println();
+            evaluate_mean_scores();
+        }
     }
 
     private void evaluate_ensemble() throws Exception
@@ -165,6 +170,12 @@ public class NeuralWSDTest
             System.out.println("Standard deviation with monosemics: " + resultsBackoffMonosemics.scoreStandardDeviation());
             System.out.println("Mean of scores with backoff first sense: " + resultsBackoffFirstSense.scoreMean());
             System.out.println("Standard deviation with backoff first sense: " + resultsBackoffFirstSense.scoreStandardDeviation());
+            System.out.println();
+            for (String pos : Arrays.asList("n", "v", "a", "r", "x"))
+            {
+                System.out.println("Mean of scores with backoff first sense on POS [" + pos + "]: " + resultsBackoffFirstSense.scoreMeanPerPOS(pos));
+                System.out.println("Standard deviation with backoff first sense on POS [" + pos + "]: " + resultsBackoffFirstSense.scoreStandardDeviationPerPOS(pos));
+            }
             System.out.println();
         }
         for (int i = 0; i < weights.size(); i++)

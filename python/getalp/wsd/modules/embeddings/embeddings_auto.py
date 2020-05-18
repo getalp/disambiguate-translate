@@ -9,10 +9,16 @@ class EmbeddingsAuto(Module):
 
     def __init__(self, auto_model: str, auto_path: str):
         super().__init__()
+        if auto_model is None:
+            auto_model = ""
         if "camembert" in auto_model:
             from transformers import CamembertModel, CamembertTokenizer
             self.auto_embeddings = CamembertModel.from_pretrained(auto_path)
             self.auto_tokenizer = CamembertTokenizer.from_pretrained(auto_path)
+        elif "flaubert2" in auto_model:
+            from transformers import FlaubertModel, FlaubertTokenizer
+            self.auto_embeddings = FlaubertModel.from_pretrained(auto_path)
+            self.auto_tokenizer = FlaubertTokenizer.from_pretrained(auto_path)
         elif "flaubert" in auto_model:
             from transformers import XLMModel, XLMTokenizer
             self.auto_embeddings = XLMModel.from_pretrained(auto_path)

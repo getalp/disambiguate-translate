@@ -10,24 +10,35 @@ public class NeuralWSDPrepare
     public static void main(String[] args) throws Exception
     {
         ArgumentParser parser = new ArgumentParser();
+
         parser.addArgument("data_path");
         parser.addArgumentList("train");
         parser.addArgumentList("dev", Collections.emptyList());
         parser.addArgument("dev_from_train", "0");
         parser.addArgument("corpus_format", "xml");
         parser.addArgumentList("txt_corpus_features", Collections.singletonList("null"));
+
         parser.addArgumentList("input_features", Collections.singletonList("surface_form"));
         parser.addArgumentList("input_embeddings", Collections.singletonList("null"));
         parser.addArgumentList("input_vocabulary", Collections.singletonList("null"));
-        parser.addArgument("input_vocabulary_limit", "-1");
+        parser.addArgumentList("input_vocabulary_limit", Collections.singletonList("-1"));
         parser.addArgumentList("input_clear_text", Collections.singletonList("false"));
+
         parser.addArgumentList("output_features", Collections.singletonList("wn30_key"));
-        parser.addArgument("output_feature_vocabulary_limit", "-1");
+        parser.addArgumentList("output_vocabulary", Collections.singletonList("null"));
+        parser.addArgumentList("output_feature_vocabulary_limit", Collections.singletonList("-1"));
+
+        parser.addArgumentList("output_translations", Collections.emptyList());
+        parser.addArgumentList("output_translation_features", Collections.singletonList("surface_form"));
+        parser.addArgumentList("output_translation_vocabulary", Collections.singletonList("null"));
+        parser.addArgumentList("output_translation_vocabulary_limit", Collections.singletonList("-1"));
+        parser.addArgumentList("output_translation_clear_text", Collections.singletonList("false"));
+        parser.addArgument("share_translation_vocabulary", "false");
+
         parser.addArgument("truncate_line_length", "80");
         parser.addArgument("exclude_line_length", "150");
         parser.addArgument("line_length_tokenizer", "null");
         parser.addArgument("lowercase", "false");
-        parser.addArgument("filter_lemma", "true");
         parser.addArgument("uniform_dash", "false");
         parser.addArgument("sense_compression_hypernyms", "true");
         parser.addArgument("sense_compression_instance_hypernyms", "false");
@@ -37,6 +48,7 @@ public class NeuralWSDPrepare
         parser.addArgument("add_monosemics", "false");
         parser.addArgument("remove_monosemics", "false");
         parser.addArgument("remove_duplicates", "true");
+
         if (!parser.parse(args, true)) return;
 
         String dataPath = parser.getArgValue("data_path");
@@ -45,16 +57,26 @@ public class NeuralWSDPrepare
         int devFromTrain = parser.getArgValueInteger("dev_from_train");
         String corpusFormat = parser.getArgValue("corpus_format");
         List<String> txtCorpusFeatures = parser.getArgValueList("txt_corpus_features");
+
         List<String> inputFeatures = parser.getArgValueList("input_features");
         List<String> inputEmbeddings = parser.getArgValueList("input_embeddings");
         List<String> inputVocabulary = parser.getArgValueList("input_vocabulary");
-        int inputVocabularyLimit = parser.getArgValueInteger("input_vocabulary_limit");
+        List<Integer> inputVocabularyLimits = parser.getArgValueIntegerList("input_vocabulary_limit");
         List<Boolean> inputClearText = parser.getArgValueBooleanList("input_clear_text");
+
         List<String> outputFeatures = parser.getArgValueList("output_features");
-        int outputFeatureVocabularyLimit = parser.getArgValueInteger("output_feature_vocabulary_limit");
+        List<String> outputVocabulary = parser.getArgValueList("output_vocabulary");
+        List<Integer> outputFeatureVocabularyLimits = parser.getArgValueIntegerList("output_feature_vocabulary_limit");
+
+        List<String> outputTranslations = parser.getArgValueList("output_translations");
+        List<String> outputTranslationFeatures = parser.getArgValueList("output_translation_features");
+        List<String> outputTranslationVocabulary = parser.getArgValueList("output_translation_vocabulary");
+        List<Integer> outputTranslationVocabularyLimits = parser.getArgValueIntegerList("output_translation_vocabulary_limit");
+        List<Boolean> outputTranslationClearText = parser.getArgValueBooleanList("output_translation_clear_text");
+        boolean shareTranslationVocabulary = parser.getArgValueBoolean("share_translation_vocabulary");
+
         int maxLineLength = parser.getArgValueInteger("truncate_line_length");
         boolean lowercase = parser.getArgValueBoolean("lowercase");
-        boolean filterLemma = parser.getArgValueBoolean("filter_lemma");
         boolean uniformDash = parser.getArgValueBoolean("uniform_dash");
         boolean senseCompressionHypernyms = parser.getArgValueBoolean("sense_compression_hypernyms");
         boolean senseCompressionInstanceHypernyms = parser.getArgValueBoolean("sense_compression_instance_hypernyms");
@@ -78,16 +100,25 @@ public class NeuralWSDPrepare
         inputEmbeddings = padList(inputEmbeddings, inputFeatures.size(), "null");
         inputVocabulary = padList(inputVocabulary, inputFeatures.size(), "null");
         inputClearText = padList(inputClearText, inputFeatures.size(), false);
+        inputVocabularyLimits = padList(inputVocabularyLimits, inputFeatures.size(), -1);
+
+        outputVocabulary = padList(outputVocabulary, outputFeatures.size(), "null");
+        outputFeatureVocabularyLimits = padList(outputFeatureVocabularyLimits, outputFeatures.size(), -1);
+
+        outputTranslationVocabulary = padList(outputTranslationVocabulary, outputTranslationFeatures.size(), "null");
+        outputTranslationVocabularyLimits = padList(outputTranslationVocabularyLimits, outputTranslationFeatures.size(), -1);
+        outputTranslationClearText = padList(outputTranslationClearText, outputTranslationFeatures.size(), false);
+
+        txtCorpusFeatures = replaceNullStringByNull(txtCorpusFeatures);
+        inputEmbeddings = replaceNullStringByNull(inputEmbeddings);
+        inputVocabulary = replaceNullStringByNull(inputVocabulary);
+        outputFeatures = replaceNullStringByNull(outputFeatures);
+        outputTranslationVocabulary = replaceNullStringByNull(outputTranslationVocabulary);
+
+        txtCorpusFeatures = clearNullOnlyList(txtCorpusFeatures);
+        outputFeatures = clearNullOnlyList(outputFeatures);
 
         NeuralDataPreparator preparator = new NeuralDataPreparator();
-
-        preparator.addWordKeyFromSenseKey = addWordKeyFromSenseKey;
-
-        if (txtCorpusFeatures.size() == 1 && txtCorpusFeatures.get(0).equals("null"))
-        {
-            txtCorpusFeatures = Collections.emptyList();
-        }
-        preparator.txtCorpusFeatures = txtCorpusFeatures;
 
         preparator.setOutputDirectoryPath(dataPath);
 
@@ -103,30 +134,25 @@ public class NeuralWSDPrepare
 
         for (int i = 0; i < inputFeatures.size(); i++)
         {
-            String inputFeatureAnnotationName = inputFeatures.get(i);
-            String inputFeatureEmbeddings = inputEmbeddings.get(i).equals("null") ? null : inputEmbeddings.get(i);
-            String inputFeatureVocabulary = inputVocabulary.get(i).equals("null") ? null : inputVocabulary.get(i);
-            preparator.addInputFeature(inputFeatureAnnotationName, inputFeatureEmbeddings, inputFeatureVocabulary);
-        }
-
-        if (outputFeatures.size() == 1 && outputFeatures.get(0).equals("null"))
-        {
-            outputFeatures.clear();
+            preparator.addInputFeature(inputFeatures.get(i), inputClearText.get(i), inputEmbeddings.get(i), inputVocabulary.get(i), inputVocabularyLimits.get(i));
         }
 
         for (int i = 0; i < outputFeatures.size(); i++)
         {
-            preparator.addOutputFeature(outputFeatures.get(i), null);
+            preparator.addOutputFeature(outputFeatures.get(i), outputVocabulary.get(i), outputFeatureVocabularyLimits.get(i));
+        }
+
+        for (int i = 0; i < outputTranslations.size(); i++)
+        {
+            preparator.addOutputTranslation(outputTranslations.get(i), outputTranslationFeatures, outputTranslationClearText, outputTranslationVocabulary, outputTranslationVocabularyLimits);
         }
 
         preparator.setCorpusFormat(corpusFormat);
-        preparator.setInputVocabularyLimit(inputVocabularyLimit);
-        preparator.setInputClearText(inputClearText);
-        preparator.setOutputFeatureVocabularyLimit(outputFeatureVocabularyLimit);
+        preparator.setShareTranslationVocabulary(shareTranslationVocabulary);
 
+        preparator.txtCorpusFeatures = txtCorpusFeatures;
         preparator.maxLineLength = maxLineLength;
         preparator.lowercaseWords = lowercase;
-        preparator.filterLemma = filterLemma;
         preparator.uniformDash = uniformDash;
         preparator.multisenses = false;
         preparator.removeAllCoarseGrained = true;
@@ -135,6 +161,7 @@ public class NeuralWSDPrepare
         preparator.reducedOutputVocabulary = senseCompressionClusters;
         preparator.additionalDevFromTrainSize = devFromTrain;
         preparator.removeDuplicateSentences = removeDuplicateSentences;
+        preparator.addWordKeyFromSenseKey = addWordKeyFromSenseKey;
 
         preparator.prepareTrainingFile();
     }
@@ -145,6 +172,38 @@ public class NeuralWSDPrepare
         while (newList.size() < padSize)
         {
             newList.add(padValue);
+        }
+        return newList;
+    }
+
+    private static List<String> replaceNullStringByNull(List<String> list)
+    {
+        List<String> newList = new ArrayList<>(list);
+        for (int i = 0 ; i < newList.size() ; i++)
+        {
+            if (newList.get(i).equals("null"))
+            {
+                newList.set(i, null);
+            }
+        }
+        return newList;
+    }
+
+    private static List<String> clearNullOnlyList(List<String> list)
+    {
+        List<String> newList = new ArrayList<>(list);
+        boolean onlyNull = true;
+        for (String element : newList)
+        {
+            if (element != null)
+            {
+                onlyNull = false;
+                break;
+            }
+        }
+        if (onlyNull)
+        {
+            newList.clear();
         }
         return newList;
     }

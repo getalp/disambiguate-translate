@@ -50,33 +50,33 @@ public class NeuralDataPreparator
     private static final String configFileName = "/config.json";
 
 
-    private WordnetHelper wn = WordnetHelper.wn30();
+    private final WordnetHelper wn = WordnetHelper.wn30();
 
-    private String senseTag = "wn" + wn.getVersion() + "_key";
+    private final String senseTag = "wn" + wn.getVersion() + "_key";
 
     private int inputFeatures = 0;
 
     public List<String> txtCorpusFeatures = new ArrayList<>();
 
-    private List<String> inputAnnotationName = new ArrayList<>();
+    private final List<String> inputAnnotationName = new ArrayList<>();
 
-    private List<String> inputEmbeddingsPath = new ArrayList<>();
+    private final List<String> inputEmbeddingsPath = new ArrayList<>();
 
-    private List<String> inputVocabularyPath = new ArrayList<>();
+    private final List<String> inputVocabularyPath = new ArrayList<>();
 
-    private List<Map<String, Integer>> inputVocabulary = new ArrayList<>();
+    private final List<Map<String, Integer>> inputVocabulary = new ArrayList<>();
 
     private int outputFeatures = 0;
 
-    private List<String> outputAnnotationName = new ArrayList<>();
+    private final List<String> outputAnnotationName = new ArrayList<>();
 
-    private List<String> outputFixedVocabularyPath = new ArrayList<>();
+    private final List<String> outputVocabularyPath = new ArrayList<>();
 
-    private List<Map<String, Integer>> outputVocabulary = new ArrayList<>();
+    private final List<Map<String, Integer>> outputVocabulary = new ArrayList<>();
 
     private int outputTranslations = 0;
 
-    private List<String> outputTranslationName = new ArrayList<>();
+    private final List<String> outputTranslationName = new ArrayList<>();
 
     private int outputTranslationFeatures = 0;
 
@@ -84,39 +84,35 @@ public class NeuralDataPreparator
 
     private List<String> outputTranslationFixedVocabularyPath = new ArrayList<>();
 
-    private List<List<Map<String, Integer>>> outputTranslationVocabulary = new ArrayList<>();
+    private final List<List<Map<String, Integer>>> outputTranslationVocabulary = new ArrayList<>();
 
     private String outputDirectoryPath = "data/neural/wsd/";
 
-    private List<String> originalTrainPaths = new ArrayList<>();
+    private final List<String> originalTrainPaths = new ArrayList<>();
 
-    private List<String> originalDevPaths = new ArrayList<>();
+    private final List<String> originalDevPaths = new ArrayList<>();
 
     private int outputFeatureSenseIndex = -1;
 
     private String corpusFormat;
 
-    private int inputVocabularyLimit;
+    private final List<Integer> inputVocabularyLimit = new ArrayList<>();
 
-    private List<Boolean> inputClearText;
+    private final List<Boolean> inputClearText = new ArrayList<>();
 
-    private int outputFeatureVocabularyLimit;
+    private final List<Integer> outputFeatureVocabularyLimit = new ArrayList<>();
 
-    private int outputTranslationVocabularyLimit;
+    private List<Integer> outputTranslationVocabularyLimit;
 
-    private boolean outputTranslationClearText;
+    private List<Boolean> outputTranslationClearText;
 
     private boolean shareTranslationVocabulary;
-
-    private Set<String> extraWordKeys = null;
 
     // --- begin public options
 
     public int maxLineLength = 80;
 
     public boolean lowercaseWords = true;
-
-    public boolean filterLemma = true;
 
     public boolean addWordKeyFromSenseKey = false;
 
@@ -158,32 +154,37 @@ public class NeuralDataPreparator
         originalDevPaths.add(corpusPath);
     }
 
-    public void addInputFeature(String annotationName, String embeddingsPath, String vocabularyPath)
+    public void addInputFeature(String annotationName, boolean clearText, String embeddingsPath, String vocabularyPath, int vocabularyLimit)
     {
         inputFeatures += 1;
         inputAnnotationName.add(annotationName);
+        inputClearText.add(clearText);
         inputEmbeddingsPath.add(embeddingsPath);
         inputVocabularyPath.add(vocabularyPath);
+        inputVocabularyLimit.add(vocabularyLimit);
     }
 
-    public void addOutputFeature(String annotationName, String vocabularyPath)
+    public void addOutputFeature(String annotationName, String vocabularyPath, int vocabularyLimit)
     {
         outputFeatures += 1;
         outputAnnotationName.add(annotationName);
-        outputFixedVocabularyPath.add(vocabularyPath);
+        outputVocabularyPath.add(vocabularyPath);
+        outputFeatureVocabularyLimit.add(vocabularyLimit);
         if (annotationName.equals(senseTag))
         {
             outputFeatureSenseIndex = outputFeatures - 1;
         }
     }
 
-    public void addOutputTranslation(String translationName, List<String> translationAnnotationName, String vocabularyPath)
+    public void addOutputTranslation(String translationName, List<String> translationAnnotationName, List<Boolean> translationClearText, List<String> vocabularyPath, List<Integer> vocabularyLimit)
     {
         outputTranslations += 1;
         outputTranslationName.add(translationName);
-        outputTranslationFixedVocabularyPath.add(vocabularyPath);
         outputTranslationFeatures = translationAnnotationName.size();
-        outputTranslationAnnotationName = new ArrayList<>(translationAnnotationName);
+        outputTranslationAnnotationName = translationAnnotationName;
+        outputTranslationClearText = translationClearText;
+        outputTranslationFixedVocabularyPath = vocabularyPath;
+        outputTranslationVocabularyLimit = vocabularyLimit;
     }
 
     public void setCorpusFormat(String corpusFormat)
@@ -191,40 +192,9 @@ public class NeuralDataPreparator
         this.corpusFormat = corpusFormat;
     }
 
-    public void setInputVocabularyLimit(int inputVocabularyLimit)
-    {
-        this.inputVocabularyLimit = inputVocabularyLimit;
-    }
-
-    public void setInputClearText(List<Boolean> inputClearText)
-    {
-        this.inputClearText = inputClearText;
-    }
-
-    public void setOutputFeatureVocabularyLimit(int outputFeatureVocabularyLimit)
-    {
-        this.outputFeatureVocabularyLimit = outputFeatureVocabularyLimit;
-    }
-
-    public void setOutputTranslationVocabularyLimit(int outputTranslationVocabularyLimit)
-    {
-        this.outputTranslationVocabularyLimit = outputTranslationVocabularyLimit;
-    }
-
-    public void setOutputTranslationClearText(boolean outputTranslationClearText)
-    {
-        this.outputTranslationClearText = outputTranslationClearText;
-    }
-
     public void setShareTranslationVocabulary(boolean shareTranslationVocabulary)
     {
         this.shareTranslationVocabulary = shareTranslationVocabulary;
-    }
-
-    public void setExtraWordKeys(Set<String> extraWordKeys)
-    {
-        if (extraWordKeys != null && extraWordKeys.isEmpty()) extraWordKeys = null;
-        this.extraWordKeys = extraWordKeys;
     }
 
     public void prepareTrainingFile() throws Exception
@@ -249,15 +219,12 @@ public class NeuralDataPreparator
         }
         extractDevSentencesParallel(trainSentences, translationTrainSentences, devSentences, translationDevSentences, additionalDevFromTrainSize);
 
-        buildExtraWordKeysVocabulary(trainSentences, true);
-        buildExtraWordKeysVocabulary(devSentences, false);
-
         initInputVocabulary();
         initOutputVocabulary();
         initOutputTranslationVocabulary();
 
         buildVocabulary(trainSentences, inputAnnotationName, inputEmbeddingsPath, inputVocabulary, true, inputVocabularyLimit);
-        buildVocabulary(trainSentences, outputAnnotationName, outputFixedVocabularyPath, outputVocabulary, false, outputFeatureVocabularyLimit);
+        buildVocabulary(trainSentences, outputAnnotationName, outputVocabularyPath, outputVocabulary, false, outputFeatureVocabularyLimit);
         for (int i = 0 ; i < outputTranslations ; i++)
         {
             buildVocabulary(translationTrainSentences.get(i), outputTranslationAnnotationName, outputTranslationFixedVocabularyPath, outputTranslationVocabulary.get(i), true, outputTranslationVocabularyLimit);
@@ -291,7 +258,7 @@ public class NeuralDataPreparator
         {
             for (int j = 0 ; j < outputTranslationFeatures ; j++)
             {
-                writeVocabulary(outputTranslationVocabulary.get(i).get(j), outputDirectoryPath + outputTranslationVocabularyFileName1 + i + outputTranslationVocabularyFileName2 + j, outputTranslationClearText);
+                writeVocabulary(outputTranslationVocabulary.get(i).get(j), outputDirectoryPath + outputTranslationVocabularyFileName1 + i + outputTranslationVocabularyFileName2 + j, outputTranslationClearText.get(j));
             }
         }
         writeCorpus(trainSentences, translationTrainSentences, outputDirectoryPath + trainFileName);
@@ -323,9 +290,9 @@ public class NeuralDataPreparator
     {
         for (int i = 0 ; i < outputFeatures ; i++)
         {
-            if (outputFixedVocabularyPath.get(i) != null)
+            if (outputVocabularyPath.get(i) != null)
             {
-                outputVocabulary.add(readVocabulary(outputFixedVocabularyPath.get(i)));
+                outputVocabulary.add(loadVocabulary(outputVocabularyPath.get(i)));
             }
             else
             {
@@ -343,9 +310,9 @@ public class NeuralDataPreparator
             assert(outputTranslationAnnotationName.size() == outputTranslationFeatures);
             for (int j = 0 ; j < outputTranslationFeatures ; j++)
             {
-                if (outputTranslationFixedVocabularyPath.get(i) != null)
+                if (outputTranslationFixedVocabularyPath.get(j) != null)
                 {
-                    translationVocabulary.add(loadVocabulary(outputTranslationFixedVocabularyPath.get(i)));
+                    translationVocabulary.add(loadVocabulary(outputTranslationFixedVocabularyPath.get(j)));
                 }
                 else
                 {
@@ -371,26 +338,15 @@ public class NeuralDataPreparator
 
     private Map<String, Integer> loadVocabulary(String vocabularyPath) throws IOException
     {
-        Map<String, Integer> vocabulary = createNewInputVocabulary();
+        //uncomment to add pad/unk/bos/eos/skip... before loading
+        //Map<String, Integer> vocabulary = createNewInputVocabulary();
+        Map<String, Integer> vocabulary = new HashMap<>();
         Wrapper<Integer> i = new Wrapper<>(vocabulary.size());
         BufferedReader in = Files.newBufferedReader(Paths.get(vocabularyPath));
         in.lines().forEach(line ->
         {
             vocabulary.put(line, i.obj);
             i.obj++;
-        });
-        in.close();
-        return vocabulary;
-    }
-
-    private Map<String, Integer> readVocabulary(String vocabularyPath) throws IOException
-    {
-        Map<String, Integer> vocabulary = new HashMap<>();
-        BufferedReader in = Files.newBufferedReader(Paths.get(vocabularyPath));
-        in.lines().forEach((line) ->
-        {
-            String[] tokens = line.split(RegExp.anyWhiteSpaceGrouped.toString());
-            vocabulary.put(tokens[1], Integer.valueOf(tokens[0]));
         });
         in.close();
         return vocabulary;
@@ -443,7 +399,7 @@ public class NeuralDataPreparator
         config.put("input_features", inputFeatures);
         config.put("input_annotation_name", inputAnnotationName);
         config.put("input_embeddings_path", inputEmbeddingsPath.stream().map(p -> p != null ? Paths.get(p).toAbsolutePath().toString() : null).collect(Collectors.toList()));
-        config.put("input_clear_text", IntStream.range(0, inputFeatures).boxed().map(i -> inputClearText.get(i)).collect(Collectors.toList()));
+        config.put("input_clear_text", IntStream.range(0, inputFeatures).boxed().map(inputClearText::get).collect(Collectors.toList()));
         config.put("output_features", outputFeatures);
         config.put("output_annotation_name", outputAnnotationName);
         config.put("output_translations", outputTranslations);
@@ -477,15 +433,7 @@ public class NeuralDataPreparator
         List<Sentence> allSentences = new ArrayList<>();
         if (txtCorpusFeatures.isEmpty())
         {
-            txtCorpusFeatures = new ArrayList<>();
-            for (int i = 0; i < inputFeatures; i++)
-            {
-                txtCorpusFeatures.add(inputAnnotationName.get(i));
-            }
-            for (int i = 0; i < outputFeatures; i++)
-            {
-                txtCorpusFeatures.add(outputAnnotationName.get(i));
-            }
+            System.out.println("Warning: you must specify the features of txt corpora");
         }
         for (String originalCorpusPath : originalCorpusPaths)
         {
@@ -636,65 +584,10 @@ public class NeuralDataPreparator
         }
     }
 
-    private void buildExtraWordKeysVocabulary(List<Sentence> sentences, boolean isTrain)
-    {
-        if (extraWordKeys == null) return;
-        System.out.println("Building extra wordkeys vocabulary");
-        Map<String, Set<String>> sensesPerWordKey = new HashMap<>();
-        for (Sentence s : sentences)
-        {
-            List<Word> words = s.getWords();
-            for (Word w : words)
-            {
-                if (w.hasAnnotation(senseTag))
-                {
-                    String senseKey = w.getAnnotationValue(senseTag);
-                    for (String extraWordKey : extraWordKeys)
-                    {
-                        // si extraWordKey pourrait avoir le sens senseKey, alors on met cette annotation
-                        boolean isPossibleSense = false;
-                        for (String extrasenseKey : wn.getSenseKeyListFromWordKey(extraWordKey))
-                        {
-                            String extraSynsetKey = wn.getSynsetKeyFromSenseKey(extrasenseKey);
-                            if (reducedOutputVocabulary != null)
-                            {
-                                extraSynsetKey = reducedOutputVocabulary.getOrDefault(extraSynsetKey, extraSynsetKey);
-                            }
-                            if (extraSynsetKey.equals(senseKey))
-                            {
-                                isPossibleSense = true;
-                                break;
-                            }
-                        }
-                        if (isPossibleSense)
-                        {
-                            w.setAnnotation(extraWordKey, senseKey);
-                            if (isTrain)
-                            {
-                                sensesPerWordKey.putIfAbsent(extraWordKey, new HashSet<>());
-                                sensesPerWordKey.get(extraWordKey).add(senseKey);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if (isTrain)
-        {
-            for (String extraWordKey : sensesPerWordKey.keySet())
-            {
-                if (sensesPerWordKey.get(extraWordKey).size() > 1)
-                {
-                    addOutputFeature(extraWordKey, null);
-                }
-            }
-        }
-    }
-
     private void buildVocabulary(List<Sentence> allSentences,
                                  List<String> annotationName, List<String> fixedVocabularyPath,
                                  List<Map<String, Integer>> vocabulary,
-                                 boolean isInputVocabulary, int vocabularyLimit)
+                                 boolean isInputVocabulary, List<Integer> vocabularyLimit)
     {
         System.out.println("Building vocabulary");
 
@@ -751,15 +644,16 @@ public class NeuralDataPreparator
             int initVocabularySize = featureVocabulary.size();
             List<String> sortedKeys = featureFrequencies.entrySet().stream().sorted(Map.Entry.comparingByValue()).map(Map.Entry::getKey).collect(Collectors.toList());
             Collections.reverse(sortedKeys);
-            if (vocabularyLimit <= 0)
+            int vocabLimit = vocabularyLimit.get(i);
+            if (vocabLimit <= 0)
             {
-                vocabularyLimit = sortedKeys.size();
+                vocabLimit = sortedKeys.size();
             }
             else
             {
-                vocabularyLimit = Math.min(vocabularyLimit, sortedKeys.size());
+                vocabLimit = Math.min(vocabLimit, sortedKeys.size());
             }
-            for (int j = 0; j < vocabularyLimit; j++)
+            for (int j = 0; j < vocabLimit; j++)
             {
                 featureVocabulary.put(sortedKeys.get(j), j + initVocabularySize);
             }
@@ -804,6 +698,7 @@ public class NeuralDataPreparator
                         if (featureVocabulary.containsKey(featureValue))
                         {
                             sentenceHasOutputFeatures = true;
+                            break;
                         }
                     }
                 }
@@ -1004,7 +899,7 @@ public class NeuralDataPreparator
                 {
                     String featureValue = w.getAnnotationValue(inputAnnotationName.get(i));
                     Map<String, Integer> featureVocabulary = inputVocabulary.get(i);
-                    if (featureValue.isEmpty() || !(featureVocabulary.containsKey(featureValue) || (inputVocabularyLimit <= 0 && inputClearText.get(i))))
+                    if (featureValue.isEmpty() || !(featureVocabulary.containsKey(featureValue) || (inputVocabularyLimit.get(i) <= 0 && inputClearText.get(i))))
                     {
                         featureValue = unknownToken;
                     }
@@ -1104,9 +999,16 @@ public class NeuralDataPreparator
                         Map<String, Integer> featureVocabulary = outputTranslationVocabulary.get(ti).get(i);
                         if (featureValue.isEmpty() || !featureVocabulary.containsKey(featureValue))
                         {
-                            featureValue = unknownToken;
+                            if (i == 0)
+                            {
+                                featureValue = unknownToken;
+                            }
+                            else
+                            {
+                                featureValue = paddingToken;
+                            }
                         }
-                        if (outputTranslationClearText)
+                        if (outputTranslationClearText.get(i))
                         {
                             featureValue = featureValue.replace("/", "<slash>");
                         }

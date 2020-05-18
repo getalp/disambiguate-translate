@@ -23,7 +23,7 @@ class DataConfig(object):
         self.output_translation_features: int = 0
         self.output_translation_vocabularies: List[List[List[str]]] = []
         self.output_translation_vocabulary_sizes: List[List[int]] = []
-        self.output_translation_clear_text: bool = bool()
+        self.output_translation_clear_text: List[bool] = []
 
     def load_from_file(self, file_path):
         file = open(file_path, "r")
@@ -42,9 +42,9 @@ class DataConfig(object):
         self.output_feature_names = data["output_annotation_name"]
         self.load_output_vocabulary()
         self.output_translations = data.get("output_translations", 0)
-        self.output_translation_features = data.get("output_translations", 1)
+        self.output_translation_features = data.get("output_translation_features", 1)
         self.load_translation_output_vocabulary()
-        self.output_translation_clear_text = data.get("output_translation_clear_text", False)
+        self.load_output_translation_clear_text_values(data)
 
     def load_input_vocabularies(self):
         for i in range(0, self.input_features):
@@ -63,6 +63,10 @@ class DataConfig(object):
     def load_input_clear_text_values(self, data):
         self.input_clear_text = get_value_as_bool_list(data.get("input_clear_text", None))
         pad_list(self.input_clear_text, self.input_features, False)
+
+    def load_output_translation_clear_text_values(self, data):
+        self.output_translation_clear_text = get_value_as_bool_list(data.get("output_translation_clear_text", None))
+        pad_list(self.output_translation_clear_text, self.output_translation_features, False)
 
     def load_output_vocabulary(self):
         for i in range(0, self.output_features):

@@ -18,7 +18,7 @@ eos_token = "<eos>"
 
 def get_vocabulary(vocabulary_file_path):
     vocabulary_file = open(vocabulary_file_path)
-    vocabulary = [line.rstrip().split()[-1] for line in vocabulary_file]
+    vocabulary = [line.strip() for line in vocabulary_file]
     vocabulary_file.close()
     return vocabulary
 
@@ -92,19 +92,22 @@ def read_sample_z_from_string(string: str, feature_count: int):
     return sample_z
 
 
-def read_sample_t_from_string(string: str, feature_count: int):
+def read_sample_t_from_string(string: str, feature_count: int, clear_text: List[bool]):
     sample_t: List = [[] for _ in range(feature_count)]
     for word in string.split():
         word_features = word.split('/')
         for i in range(feature_count):
-            sample_t[i].append(int(word_features[i]))
+            if clear_text[i]:
+                raise NotImplementedError
+            else:
+                sample_t[i].append(int(word_features[i]))
     for i in range(feature_count):
         sample_t[i].append(eos_token_index)
         sample_t[i] = torch_tensor(sample_t[i], dtype=torch_long, device=cpu_device)
     return sample_t
 
 
-def read_samples_from_file(file_path: str, input_clear_text: List[bool], output_features: int, output_translations: int, output_translation_features: int, output_translation_clear_text: bool, limit: int = -1):
+def read_samples_from_file(file_path: str, input_clear_text: List[bool], output_features: int, output_translations: int, output_translation_features: int, output_translation_clear_text: List[bool], limit: int = -1):
     file = open(file_path, "r")
     samples = []
     sample_triplet = []
@@ -136,12 +139,7 @@ def read_samples_from_file(file_path: str, input_clear_text: List[bool], output_
                 samples.append(sample_triplet)
                 i = 0
         elif i == 3:
-            if output_translation_clear_text:
-                raise NotImplementedError
-                # TODO:
-                # sample_t = read_sample_x_from_string(line, feature_count=0, clear_text=[True], add_eos_token=False)
-            else:
-                sample_t = read_sample_t_from_string(line, feature_count=output_translation_features)
+            sample_t = read_sample_t_from_string(line, feature_count=output_translation_features, clear_text=output_translation_clear_text)
             sample_tt.append(sample_t)
             if len(sample_tt) >= output_translations:
                 sample_triplet.append(sample_tt)
@@ -186,7 +184,7 @@ def unpad_turn_to_text_and_remove_bpe_of_batch_t(batch_t, vocabulary: List[str])
     return ret
 
 
-def read_batch_from_samples(samples, batch_size: int, token_per_batch: int, current_index: int, input_features: int, output_features: int, output_translations: int, output_translation_features: int, input_clear_text: List[bool], output_translation_clear_text: bool):
+def read_batch_from_samples(samples, batch_size: int, token_per_batch: int, current_index: int, input_features: int, output_features: int, output_translations: int, output_translation_features: int, input_clear_text: List[bool], output_translation_clear_text: List[bool]):
     batch_x = [[] for _ in range(input_features)]
     batch_y = [[] for _ in range(output_features)]
     batch_z = [[] for _ in range(output_features)]

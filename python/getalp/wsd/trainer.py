@@ -39,6 +39,7 @@ class Trainer(object):
         self.input_resize: List[int] = None
         self.input_linear_size: int = None
         self.input_dropout_rate: float = None
+        self.input_combination_method: str = None
         self.encoder_type: str = None
         self.encoder_lstm_hidden_size: int = None
         self.encoder_lstm_layers: int = None
@@ -50,6 +51,8 @@ class Trainer(object):
         self.encoder_transformer_positional_encoding: bool = None
         self.encoder_transformer_scale_embeddings: bool = None
         self.decoder_translation_transformer_hidden_size: int = None
+        self.decoder_translation_transformer_layers: int = None
+        self.decoder_translation_transformer_heads: int = None
         self.decoder_translation_transformer_dropout: float = None
         self.decoder_translation_scale_embeddings: bool = None
         self.decoder_translation_share_embeddings: bool = None
@@ -63,6 +66,8 @@ class Trainer(object):
         self.lr_scheduler_fixed_lr: float = float()
         self.lr_scheduler_noam_warmup: int = int()
         self.lr_scheduler_noam_model_size: int = int()
+        self.classifier_loss_factor: float = float()
+        self.decoder_loss_factor: float = float()
         self.reset: bool = bool()
 
     def train(self):
@@ -104,6 +109,7 @@ class Trainer(object):
             config.set_input_resize(self.input_resize)
         config.input_linear_size = set_if_not_none(self.input_linear_size, config.input_linear_size)
         config.input_dropout_rate = set_if_not_none(self.input_dropout_rate, config.input_dropout_rate)
+        config.input_combination_method = set_if_not_none(self.input_combination_method, config.input_combination_method)
         config.encoder_type = set_if_not_none(self.encoder_type, config.encoder_type)
         config.encoder_lstm_hidden_size = set_if_not_none(self.encoder_lstm_hidden_size, config.encoder_lstm_hidden_size)
         config.encoder_lstm_layers = set_if_not_none(self.encoder_lstm_layers, config.encoder_lstm_layers)
@@ -115,6 +121,8 @@ class Trainer(object):
         config.encoder_transformer_positional_encoding = set_if_not_none(self.encoder_transformer_positional_encoding, config.encoder_transformer_positional_encoding)
         config.encoder_transformer_scale_embeddings = set_if_not_none(self.encoder_transformer_scale_embeddings, config.encoder_transformer_scale_embeddings)
         config.decoder_translation_transformer_hidden_size = set_if_not_none(self.decoder_translation_transformer_hidden_size, config.decoder_translation_transformer_hidden_size)
+        config.decoder_translation_transformer_layers = set_if_not_none(self.decoder_translation_transformer_layers, config.decoder_translation_transformer_layers)
+        config.decoder_translation_transformer_heads = set_if_not_none(self.decoder_translation_transformer_heads, config.decoder_translation_transformer_heads)
         config.decoder_translation_transformer_dropout = set_if_not_none(self.decoder_translation_transformer_dropout, config.decoder_translation_transformer_dropout)
         config.decoder_translation_scale_embeddings = set_if_not_none(self.decoder_translation_scale_embeddings, config.decoder_translation_scale_embeddings)
         config.decoder_translation_share_embeddings = set_if_not_none(self.decoder_translation_share_embeddings, config.decoder_translation_share_embeddings)
@@ -126,6 +134,8 @@ class Trainer(object):
         model: Model = Model(config)
         model.set_adam_parameters(adam_beta1=self.adam_beta1, adam_beta2=self.adam_beta2, adam_eps=self.adam_eps)
         model.set_lr_scheduler(lr_scheduler=self.lr_scheduler, fixed_lr=self.lr_scheduler_fixed_lr, warmup=self.lr_scheduler_noam_warmup, model_size=self.lr_scheduler_noam_model_size)
+        model.classifier_loss_factor = self.classifier_loss_factor
+        model.decoder_loss_factor = self.decoder_loss_factor
 
         current_ensemble = 0
         current_epoch = 0
